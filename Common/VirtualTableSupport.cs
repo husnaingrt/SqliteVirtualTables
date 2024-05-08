@@ -241,7 +241,7 @@ public unsafe struct vTabCursor
     public vTab* pVtab;
 }
 
-partial class CoreModule
+public partial class CoreModule
 {
     const string SQLITE_DLL = "e_sqlite3";
     const CallingConvention CALLING_CONVENTION = CallingConvention.Cdecl;
