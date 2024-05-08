@@ -1,8 +1,9 @@
 ﻿using SQLitePCL;
+using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace SqliteVirtualTables;
+namespace SQLite.VirtualTables;
 
 public static unsafe class Constants
 {
@@ -93,7 +94,7 @@ public static unsafe class Constants
     ** CAPI3REF: Virtual Table Constraint Operator Codes
     **
     ** These macros define the allowed values for the
-    ** [sqlite3_index_info].aConstraint[].op field.  Each value represents
+    ** [IndexInfo].aConstraint[].op field.  Each value represents
     ** an operator that is part of a constraint term in the WHERE clause of
     ** a query that uses a [virtual table].
     **
@@ -149,25 +150,25 @@ public static unsafe class Constants
     public static delegate* unmanaged[Cdecl]<void*, void> SQLITE_TRANSIENT = (delegate* unmanaged[Cdecl]<void*, void>)new IntPtr(-1);
 }
 
-public unsafe struct sqlite3_module
+public unsafe struct Module
 {
     public int iVersion;
-    public delegate* unmanaged[Cdecl]<nint, IntPtr, int, byte**, sqlite3_vtab**, byte**, int> xCreate;
-    public delegate* unmanaged[Cdecl]<nint, IntPtr, int, byte**, sqlite3_vtab**, byte**, int> xConnect;
-    public delegate* unmanaged[Cdecl]<sqlite3_vtab*, sqlite3_index_info*, int> xBestIndex;
-    public delegate* unmanaged[Cdecl]<sqlite3_vtab*, int> xDisconnect;
-    public delegate* unmanaged[Cdecl]<sqlite3_vtab*, int> xDestroy;
-    public delegate* unmanaged[Cdecl]<sqlite3_vtab*, sqlite3_vtab_cursor**, int> xOpen;
-    public delegate* unmanaged[Cdecl]<sqlite3_vtab_cursor*, int> xClose;
+    public delegate* unmanaged[Cdecl]<nint, IntPtr, int, byte**, vTab**, byte**, int> xCreate;
+    public delegate* unmanaged[Cdecl]<nint, IntPtr, int, byte**, vTab**, byte**, int> xConnect;
+    public delegate* unmanaged[Cdecl]<vTab*, IndexInfo*, int> xBestIndex;
+    public delegate* unmanaged[Cdecl]<vTab*, int> xDisconnect;
+    public delegate* unmanaged[Cdecl]<vTab*, int> xDestroy;
+    public delegate* unmanaged[Cdecl]<vTab*, vTabCursor**, int> xOpen;
+    public delegate* unmanaged[Cdecl]<vTabCursor*, int> xClose;
     public delegate* unmanaged[Cdecl]<
-      sqlite3_vtab_cursor*,
+      vTabCursor*,
       int, byte*,
       int, nint*, int> xFilter;
-    public delegate* unmanaged[Cdecl]<sqlite3_vtab_cursor*, int> xNext;
-    public delegate* unmanaged[Cdecl]<sqlite3_vtab_cursor*, int> xEof;
-    public delegate* unmanaged[Cdecl]<sqlite3_vtab_cursor*, sqlite3_context*, int, int> xColumn;
-    public delegate* unmanaged[Cdecl]<sqlite3_vtab_cursor*, long*, int> xRowid;
-    public delegate* unmanaged[Cdecl]<sqlite3_vtab*, int, nint*, long*, int> xUpdate;
+    public delegate* unmanaged[Cdecl]<vTabCursor*, int> xNext;
+    public delegate* unmanaged[Cdecl]<vTabCursor*, int> xEof;
+    public delegate* unmanaged[Cdecl]<vTabCursor*, sqlite3_context*, int, int> xColumn;
+    public delegate* unmanaged[Cdecl]<vTabCursor*, long*, int> xRowid;
+    public delegate* unmanaged[Cdecl]<vTab*, int, nint*, long*, int> xUpdate;
     public IntPtr xBegin;
     public IntPtr xSync;
     public IntPtr xCommit;
@@ -183,17 +184,17 @@ public unsafe struct sqlite3_module
     ** Those below are for version 3 and greater.  */
     public IntPtr xShadowName;
 
-    public delegate int VirtualModuleConnect(sqlite3 db, IntPtr pUnused, int argcUnused, IntPtr argvUnused, sqlite3_vtab** ppVtab, IntPtr pzErrUnused);
+    public delegate int VirtualModuleConnect(sqlite3 db, IntPtr pUnused, int argcUnused, IntPtr argvUnused, vTab** ppVtab, IntPtr pzErrUnused);
 }
 
-public unsafe struct sqlite3_vtab
+public unsafe struct vTab
 {
-    public readonly sqlite3_module* pModule;
+    public readonly Module* pModule;
     public readonly int nRef;
     public byte* zErrMsg;
 }
 
-public struct sqlite3_index_constraint
+public struct IndexConstraint
 {
     public int iColumn;              /* Column constrained.  -1 for ROWID */
     public byte op;         /* Constraint operator */
@@ -201,27 +202,27 @@ public struct sqlite3_index_constraint
     public int iTermOffset;          /* Used internally - xBestIndex should ignore */
 }
 
-public struct sqlite3_index_orderby
+public struct IndexOrderby
 {
     public int iColumn;              /* Column number */
     public byte desc;       /* True for DESC.  False for ASC. */
 }
 
-public struct sqlite3_index_constraint_usage
+public struct IndexConstraintUsage
 {
     public int argvIndex;           /* if >0, constraint is part of argv to xFilter */
     public byte omit;      /* Do not code a test for this constraint */
 }
 
-public unsafe struct sqlite3_index_info
+public unsafe struct IndexInfo
 {
     /* Inputs */
     public int nConstraint;           /* Number of entries in aConstraint */
-    public sqlite3_index_constraint* aConstraint;            /* Table of WHERE clause constraints */
+    public IndexConstraint* aConstraint;            /* Table of WHERE clause constraints */
     public int nOrderBy;              /* Number of terms in the ORDER BY clause */
-    public sqlite3_index_orderby* aOrderBy;               /* The ORDER BY clause */
+    public IndexOrderby* aOrderBy;               /* The ORDER BY clause */
     /* Outputs */
-    public sqlite3_index_constraint_usage* aConstraintUsage;
+    public IndexConstraintUsage* aConstraintUsage;
     public int idxNum;                /* Number used to identify the index */
     public char* idxStr;              /* String, possibly obtained from sqlite3_malloc */
     public int needToFreeIdxStr;      /* Free idxStr using sqlite3_free() if true */
@@ -235,19 +236,19 @@ public unsafe struct sqlite3_index_info
     public ulong colUsed;    /* Input: Mask of columns used by statement */
 }
 
-public unsafe struct sqlite3_vtab_cursor
+public unsafe struct vTabCursor
 {
-    public sqlite3_vtab* pVtab;
+    public vTab* pVtab;
 }
 
-partial class VirtualModule
+partial class CoreModule
 {
     const string SQLITE_DLL = "e_sqlite3";
     const CallingConvention CALLING_CONVENTION = CallingConvention.Cdecl;
 
     [LibraryImport(SQLITE_DLL, StringMarshalling = StringMarshalling.Utf8)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(CallConvCdecl) })]
-    public static unsafe partial int sqlite3_create_module_v2(sqlite3 db, string dbName, in sqlite3_module pModule, IntPtr aux, delegate* unmanaged<void*, void> xDestroy);
+    public static unsafe partial int sqlite3_create_module_v2(sqlite3 db, string dbName, in Module pModule, IntPtr aux, delegate* unmanaged<void*, void> xDestroy);
 
     [LibraryImport(SQLITE_DLL, StringMarshalling = StringMarshalling.Utf8)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(CallConvCdecl) })]
